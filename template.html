@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="dark">
+<title>1</title>
+<link rel="icon" id="fav" href="data:,">
+<style>
+:root{--bg:#000;--fg:#d6d6d6;--dim:#7a7a7a;--line:#333;--hi:#fff;--bad:#d04444}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--bg);color-scheme:dark}
+body{margin:0;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--bg);color:var(--fg);font:16px/1.75 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono","Courier New",monospace;-webkit-font-smoothing:antialiased}
+::selection{background:#fff;color:#000}
+#app{width:min(620px,100%);border:1px solid var(--line);padding:clamp(26px,6vw,50px) clamp(18px,5vw,44px);transition:opacity .22s}
+#app.out{opacity:0}
+.num{font-size:clamp(76px,24vw,176px);line-height:1;text-align:center;color:var(--hi);margin:0 0 .22em;letter-spacing:-.05em;user-select:none}
+.body{text-align:center}
+.body p{margin:0 0 1.1em}
+.body p.long{text-align:left}
+.cipher{text-align:left;border-left:2px solid var(--line);padding:2px 0 2px 14px;letter-spacing:.04em;word-spacing:.35em;color:var(--hi);overflow-wrap:anywhere;user-select:text}
+.act{margin-top:1.6em}
+input{display:block;width:100%;background:#000;color:var(--hi);border:1px solid #8a8a8a;border-radius:0;padding:13px 14px;font:inherit;text-align:center;caret-color:#fff;outline:none}
+input:focus{border-color:#fff;box-shadow:0 0 0 1px #fff}
+input.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad);animation:sh .35s}
+@keyframes sh{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.coord{border:1px solid var(--hi);padding:16px 18px;text-align:center}
+.coord small{display:block;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;font-size:12px;margin-bottom:6px}
+.coord b{font-weight:400;letter-spacing:.06em;font-size:clamp(15px,3.6vw,19px);overflow-wrap:anywhere;color:var(--hi)}
+.next{display:block;margin:16px auto 0;background:none;border:1px solid var(--line);color:var(--fg);padding:8px 20px;font:inherit;cursor:pointer;border-radius:0}
+.next:hover,.next:focus-visible{border-color:#fff;color:#fff;outline:none;box-shadow:0 0 0 1px #fff}
+/* fase 3: campo deslocado + texto invisível (mesma cor do fundo) */
+.lv-offset .body{min-height:16vh;text-align:left}
+.lv-offset .ghost{color:#000;margin:0;font-size:13px;line-height:1.4;max-width:30ch;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text}
+.lv-offset form{width:64%;margin-left:auto;margin-top:9vh}
+/* fase 5: player */
+.player{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;margin:0 0 1.2em}
+.player button,.player a{font:inherit;font-size:14px;color:var(--fg);background:none;border:1px solid var(--line);padding:6px 14px;text-decoration:none;cursor:pointer;border-radius:0}
+.player button:hover,.player a:hover,.player button:focus-visible,.player a:focus-visible,.player .bar:focus-visible{border-color:#fff;color:#fff;outline:none}
+.player .bar{flex:1 1 160px;min-width:130px;height:16px;border:1px solid var(--line);cursor:pointer;position:relative}
+.player .bar i{display:block;height:100%;width:0;background:var(--fg)}
+.player .tm{font-size:13px;color:var(--dim);min-width:12ch;text-align:center}
+/* fase 8: poema */
+.poem .body p{margin:0 0 1.7em;line-height:1.95}
+.poem .body p:first-child br:first-child{display:none}
+.poem .body p:first-child{color:var(--fg)}
+#logbtn{position:fixed;left:14px;bottom:12px;background:none;border:0;color:var(--dim);font:inherit;font-size:13px;cursor:pointer;padding:6px}
+#logbtn:hover,#logbtn:focus-visible{color:#fff;outline:none}
+#log{position:fixed;left:14px;bottom:46px;max-width:min(520px,calc(100vw - 28px));background:#000;border:1px solid #666;padding:14px 16px;font-size:13px;line-height:1.7}
+#log h2{margin:0 0 8px;font-size:12px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+#log div{overflow-wrap:anywhere}
+#log span{color:var(--dim);margin-right:8px}
+.sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+@media (max-width:520px){body{padding:12px}#app{border-color:#222}}
+@media (prefers-reduced-motion:reduce){#app{transition:none}input.bad{animation:none}}
+</style>
+</head>
+<body>
+<main id="app" class="lv"></main>
+<button id="logbtn" type="button" hidden>registro</button>
+<aside id="log" hidden></aside>
+<div id="live" class="sr" aria-live="polite"></div>
+<noscript>ative o javascript.</noscript>
+<script>
+(() => {
+'use strict';
+const D = /*__DATA__*/{};
+const app = document.getElementById('app'), live = document.getElementById('live'),
+      logbtn = document.getElementById('logbtn'), logEl = document.getElementById('log');
+const enc = new TextEncoder(), dec = new TextDecoder();
+const sub = window.crypto && crypto.subtle;
+const ST = 'cv-estado-1', KR = 'cv-r6';
+const mq = q => !!(window.matchMedia && matchMedia(q).matches);
+const FADE = mq('(prefers-reduced-motion: reduce)') ? 0 : 220;
+
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const u8 = b => Uint8Array.from(atob(b), c => c.charCodeAt(0));
+const hex = buf => [...new Uint8Array(buf)].map(x => x.toString(16).padStart(2, '0')).join('');
+const rev = p => [...dec.decode(u8(p))].reverse().join('');
+function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+
+// ---------- estado (guarda só o que o jogador já desbloqueou) ----------
+let S = { s: [], ack: 0 };
+try { const r = JSON.parse(localStorage.getItem(ST)); if (r && Array.isArray(r.s)) S = r; } catch (e) {}
+const save = () => { try { localStorage.setItem(ST, JSON.stringify(S)); } catch (e) {} };
+const levelOf = v => v === 1 ? D.l1 : (S.s[v - 2] && S.s[v - 2].n);
+
+// ---------- verificação: a resposta certa é a chave que abre a próxima fase ----------
+async function tryAnswer(v, raw) {
+  const n = norm(raw); if (!n) return null;
+  const t = hex(await sub.digest('SHA-256', enc.encode(D.salt + '|tag|' + v + '|' + n))).slice(0, 8);
+  const hit = D.b[v - 1].filter(e => e.t === t);
+  if (!hit.length) return null;
+  const base = await sub.importKey('raw', enc.encode(n), 'PBKDF2', false, ['deriveKey']);
+  const key = await sub.deriveKey({ name: 'PBKDF2', salt: enc.encode(D.salt + ':' + v), iterations: D.it, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  for (const e of hit) {
+    try { return JSON.parse(dec.decode(await sub.decrypt({ name: 'AES-GCM', iv: u8(e.i) }, key, u8(e.c)))); } catch (_) {}
+  }
+  return null;
+}
+
+// ---------- favicon / título ----------
+function setIcon(txt) {
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d'); if (!g) return;
+    g.fillStyle = '#000'; g.fillRect(0, 0, 64, 64);
+    g.strokeStyle = '#fff'; g.lineWidth = 4; g.strokeRect(2, 2, 60, 60);
+    g.fillStyle = '#fff'; g.font = 'bold 40px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(txt, 32, 35);
+    const l = document.createElement('link'); l.rel = 'icon'; l.id = 'fav'; l.href = c.toDataURL('image/png');
+    const old = document.getElementById('fav'); old ? old.replaceWith(l) : document.head.append(l);
+  } catch (e) {}
+}
+function ticker(fn, ms) { // worker: não sofre o freio de timers das abas em segundo plano
+  try {
+    const u = URL.createObjectURL(new Blob(['setInterval(()=>postMessage(1),' + ms + ')'], { type: 'text/javascript' }));
+    const w = new Worker(u); w.onmessage = fn;
+    return () => { w.terminate(); URL.revokeObjectURL(u); };
+  } catch (e) { const i = setInterval(fn, ms); return () => clearInterval(i); }
+}
+
+// ---------- comportamentos especiais ----------
+const kinds = {
+  audio(root, d) {
+    const box = root.querySelector('.player'); if (!box) return;
+    const a = new Audio(); a.preload = 'metadata'; a.src = d.src;
+    const pp = el('button', '', 'tocar'); pp.type = 'button';
+    const bar = el('div', 'bar'); bar.tabIndex = 0; bar.setAttribute('role', 'slider'); bar.setAttribute('aria-label', 'posição');
+    bar.setAttribute('aria-valuemin', 0); bar.setAttribute('aria-valuemax', 100);
+    const fill = el('i'); bar.append(fill);
+    const tm = el('span', 'tm', '0:00 / –:––');
+    const dl = el('a', '', 'baixar'); dl.href = d.src; dl.download = d.name || '';
+    box.append(pp, bar, tm, dl);
+    const fmt = s => isFinite(s) ? Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') : '–:––';
+    const upd = () => {
+      const r = a.duration ? a.currentTime / a.duration : 0;
+      fill.style.width = (r * 100) + '%'; bar.setAttribute('aria-valuenow', Math.round(r * 100));
+      tm.textContent = fmt(a.currentTime) + ' / ' + fmt(a.duration);
+    };
+    ['timeupdate', 'loadedmetadata', 'durationchange'].forEach(ev => a.addEventListener(ev, upd));
+    a.addEventListener('play', () => pp.textContent = 'pausar');
+    a.addEventListener('pause', () => pp.textContent = 'tocar');
+    a.addEventListener('ended', () => pp.textContent = 'tocar');
+    a.addEventListener('error', () => { tm.textContent = 'arquivo indisponível'; });
+    pp.onclick = () => { a.paused ? a.play().catch(() => {}) : a.pause(); };
+    const seek = r => { if (a.duration) a.currentTime = Math.max(0, Math.min(1, r)) * a.duration; };
+    bar.onclick = e => { const b = bar.getBoundingClientRect(); seek((e.clientX - b.left) / b.width); };
+    bar.onkeydown = e => {
+      if (e.key === 'ArrowRight') { a.currentTime = Math.min(a.duration || 0, a.currentTime + 5); e.preventDefault(); }
+      if (e.key === 'ArrowLeft') { a.currentTime = Math.max(0, a.currentTime - 5); e.preventDefault(); }
+    };
+    return () => { a.pause(); a.removeAttribute('src'); a.load(); };
+  },
+  tab(root, d, v) {
+    const phrase = rev(d.p), len = phrase.length, words = phrase.split(' ');
+    const LET = 1300, WORD = 2200; // ms por letra revelada / por palavra (depois de completa)
+    let R = 0; try { R = Math.min(len, +localStorage.getItem(KR) || 0); } catch (e) {}
+    let t0 = 0, stop = null;
+    const paint = () => {
+      const units = R + 1 + (Date.now() - t0) / LET;
+      let ttl, ico;
+      if (units < len) {
+        const s = phrase.slice(0, Math.floor(units));
+        ttl = (s.length > 26 ? '…' : '') + s.slice(-26); ico = s.trim().slice(-1) || '·';
+      } else {
+        const w = words[Math.floor(((units - len) * LET) / WORD) % words.length]; ttl = w; ico = w[0];
+      }
+      document.title = ttl; setIcon(ico);
+    };
+    const onVis = () => {
+      if (document.hidden) { if (stop) return; t0 = Date.now(); paint(); stop = ticker(paint, 400); }
+      else if (t0) {
+        if (stop) stop(); stop = null;
+        R = Math.min(len, Math.floor(R + 1 + (Date.now() - t0) / LET)); t0 = 0;
+        try { localStorage.setItem(KR, String(R)); } catch (e) {}
+        document.title = String(v); setIcon(String(v));
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    if (document.hidden) onVis();
+    return () => { document.removeEventListener('visibilitychange', onVis); if (stop) stop(); };
+  }
+};
+
+// ---------- tela ----------
+let cleanup = null;
+function fade(fn) {
+  if (!FADE) return fn();
+  app.classList.add('out');
+  setTimeout(() => { fn(); app.classList.remove('out'); }, FADE);
+}
+function renderLog(L) {
+  logbtn.hidden = !(S.s.length && !L.clean);
+  if (logbtn.hidden) logEl.hidden = true;
+}
+logbtn.onclick = () => {
+  if (!logEl.hidden) { logEl.hidden = true; return; }
+  logEl.replaceChildren(el('h2', '', 'registro'));
+  S.s.forEach((p, i) => { const r = el('div'); r.append(el('span', '', (i + 1) + '/8'), document.createTextNode(p.c)); logEl.append(r); });
+  logEl.hidden = false;
+};
+addEventListener('keydown', e => { if (e.key === 'Escape') logEl.hidden = true; });
+
+function show(v) {
+  if (cleanup) { cleanup(); cleanup = null; }
+  const L = levelOf(v), solved = S.s.length >= v;
+  app.className = 'lv ' + (L.cls || '');
+  app.innerHTML = (L.num ? '<div class="num">' + L.num + '</div>' : '') + '<div class="body">' + L.html + '</div><div class="act"></div>';
+  document.title = String(v); setIcon(String(v));
+  const act = app.querySelector('.act');
+  let focusEl = null;
+  if (solved) {
+    const box = el('div', 'coord'); box.setAttribute('role', 'status');
+    box.append(el('small', '', 'coordenada ' + v + '/8'), el('b', '', S.s[v - 1].c));
+    act.append(box);
+    if (v < 8) {
+      const b = el('button', 'next', 'continuar →'); b.type = 'button';
+      b.onclick = () => { S.ack = v; save(); fade(() => show(v + 1)); };
+      act.append(b); focusEl = b;
+    }
+  } else {
+    const f = el('form'); f.autocomplete = 'off'; f.noValidate = true;
+    const inp = el('input'); inp.type = 'text'; inp.name = 'r'; inp.spellcheck = false;
+    inp.setAttribute('autocomplete', 'off'); inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off');
+    inp.setAttribute('enterkeyhint', 'go'); inp.setAttribute('aria-label', 'resposta');
+    for (const [k, val] of Object.entries(L.attrs || {})) if (/^data-[a-z-]+$/.test(k)) inp.setAttribute(k, val);
+    f.append(inp); act.append(f); focusEl = inp;
+    let busy = false;
+    f.onsubmit = async e => {
+      e.preventDefault();
+      if (busy || !norm(inp.value)) return;
+      busy = true; inp.readOnly = true;
+      let p = null; try { p = await tryAnswer(v, inp.value); } catch (_) {}
+      busy = false; inp.readOnly = false;
+      if (p) { S.s.push(p); save(); fade(() => show(v)); }
+      else {
+        inp.classList.remove('bad'); void inp.offsetWidth; inp.classList.add('bad');
+        live.textContent = ''; setTimeout(() => live.textContent = 'resposta incorreta', 50);
+        inp.select();
+      }
+    };
+  }
+  const cu = [];
+  if (L.kind === 'audio' && kinds.audio) { const c = kinds.audio(app, L.data); if (c) cu.push(c); }
+  if (L.kind === 'tab' && !solved) { const c = kinds.tab(app, L.data, v); if (c) cu.push(c); }
+  cleanup = () => cu.forEach(f => f());
+  renderLog(L);
+  if (focusEl && !mq('(pointer: coarse)')) focusEl.focus({ preventScroll: true });
+}
+
+if (!sub) { app.textContent = 'abra este endereço por https.'; return; }
+if (!(S.ack >= 0 && S.ack <= 7 && S.ack <= S.s.length && S.s.length <= 8 && levelOf(S.ack + 1))) S = { s: [], ack: 0 };
+show(S.ack + 1);
+})();
+</script>
+</body>
+</html>
