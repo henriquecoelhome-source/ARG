@@ -45,8 +45,8 @@ module.exports = {
         '<p class="long">Ele nunca foi dono das mensagens, apenas quem as carrega. Tem pressa nos calcanhares e atravessa qualquer porta sem pedir licença.</p>' +
         '<p class="long">Escreve em todas as línguas, as das pessoas e as das máquinas, porque tudo pode ser uma mensagem.</p>' +
         '<p class="long">Nada aqui é só o que parece. Todos os elementos podem ser inspecionados a fundo, e é lá dentro que a resposta espera.</p>' +
-        '<!-- os ratos que incitaram, serão os mesmos que finalizarão -->',
-      attrs: { 'data-mensageiro': 'os ratos que incitaram, serão os mesmos que finalizarão' },
+        '<p class="hermes" hidden>os ratos que incitaram, serão os mesmos que finalizarão</p>',
+      attrs: { 'data-mensagem': 'os ratos que incitaram, serão os mesmos que finalizarão' }, // vai no <main>: aparece direto no inspetor
       answers: ['os ratos que incitaram, serão os mesmos que finalizarão']
     },
     {
@@ -93,7 +93,7 @@ module.exports = {
         ['Mas não devemos focar no final agora.', 'Homens sempre tiveram as mesmas paixões,', 'trocam de rosto, de coroa, de nome,', 'e a roda gira no mesmo lugar.'],
         ['O fim é o começo visto de trás.', 'As coisas só aparecem quando ninguém está olhando,', 'e eu esperei, a cada página, que alguém olhasse.'],
         ['Chame o princípio pelo nome antigo,', 'aquele que nunca esteve longe:', 'arche.'],
-        ['Aqui o poema termina, e a porta se fecha.']
+        ['Aqui o poema termina, o fim é igual o começo.', 'Qual a resposta?']
       ]),
       answers: [
         'o rato roeu a roupa do rei de roma',

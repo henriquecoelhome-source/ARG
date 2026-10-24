@@ -209,6 +209,8 @@ function show(v) {
   if (cleanup) { cleanup(); cleanup = null; }
   const L = levelOf(v), solved = S.s.length >= v;
   app.className = 'lv ' + (L.cls || '');
+  [...app.attributes].forEach(a => { if (a.name.indexOf('data-') === 0) app.removeAttribute(a.name); });
+  for (const [k, val] of Object.entries(L.attrs || {})) if (/^data-[a-z-]+$/.test(k)) app.setAttribute(k, val); // aparece na linha do <main> no inspetor, sem precisar expandir
   app.innerHTML = (L.num ? '<div class="num">' + L.num + '</div>' : '') + '<div class="body">' + L.html + '</div><div class="act"></div>';
   document.title = String(v); setIcon(String(v));
   const act = app.querySelector('.act');
@@ -227,7 +229,6 @@ function show(v) {
     const inp = el('input'); inp.type = 'text'; inp.name = 'r'; inp.spellcheck = false;
     inp.setAttribute('autocomplete', 'off'); inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off');
     inp.setAttribute('enterkeyhint', 'go'); inp.setAttribute('aria-label', 'resposta');
-    for (const [k, val] of Object.entries(L.attrs || {})) if (/^data-[a-z-]+$/.test(k)) inp.setAttribute(k, val);
     f.append(inp); act.append(f); focusEl = inp;
     let busy = false;
     f.onsubmit = async e => {
