@@ -21,13 +21,20 @@ async function tag(n, k) {
 }
 const pub = l => {
   const o = { html: l.html };
-  for (const k of ['num', 'cls', 'clean', 'kind', 'data', 'attrs']) if (l[k] !== undefined && l[k] !== '') o[k] = l[k];
+  for (const k of ['num', 'cls', 'clean', 'kind', 'data', 'attrs', 'hint']) if (l[k] !== undefined && l[k] !== '') o[k] = l[k];
+  // reações: os gatilhos entram já normalizados (mesma normalização das respostas), dentro do bloco criptografado
+  if (l.hint && cfg.back) o.back = cfg.back;
+  if (l.rx && l.rx.length) o.rx = l.rx.map(r => ({ k: [...new Set(r.k.map(norm).filter(Boolean))], t: r.t }));
   return o;
 };
 
 (async () => {
   const L = cfg.levels;
   if (L.length !== 8 || cfg.coords.length !== 8) throw new Error('São necessárias 8 fases e 8 coordenadas.');
+  // um gatilho de reação nunca pode ser também uma resposta certa da mesma fase
+  L.forEach((lv, i) => (lv.rx || []).forEach(r => r.k.forEach(x => {
+    if (lv.answers.some(a => norm(a) === norm(x))) throw new Error('Fase ' + (i + 1) + ': a reação "' + x + '" coincide com uma resposta certa.');
+  })));
   const blobs = [];
   for (let k = 1; k <= 8; k++) {
     const lv = L[k - 1], payload = JSON.stringify({ c: cfg.coords[k - 1], n: k < 8 ? pub(L[k]) : null });

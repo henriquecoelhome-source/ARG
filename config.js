@@ -28,6 +28,7 @@ const FASE4 = (() => {
 module.exports = {
   salt: 'cv::7d2f91ab',
   iterations: 120000,
+  back: 'essa chave já abriu a porta de trás.',   // reação a uma resposta de fase anterior (vai criptografada em cada fase)
 
   // As 8 localizações fixas no jogo (formato idêntico ao das placas da biblioteca).
   coords: [
@@ -42,7 +43,9 @@ module.exports = {
   ],
 
   // Cada fase: num (vazio = não mostra número), html, answers (variações aceitas),
-  // cls (classe CSS), clean (esconde o botão "registro"), kind/data (comportamentos), attrs (atributos do campo)
+  // cls (classe CSS), clean (esconde o botão "registro"), kind/data (comportamentos), attrs (atributos do campo),
+  // hint (caixa de dica: aparece com 5 min na fase E 3 respostas erradas),
+  // rx (reações a respostas erradas óbvias: k = respostas que disparam [comparadas já normalizadas], t = frase mostrada abaixo do campo)
   levels: [
     {
       num: '1',
@@ -59,43 +62,77 @@ module.exports = {
         '<p class="long">Ele nunca foi dono das mensagens, apenas quem as carrega. Tem pressa nos calcanhares e atravessa qualquer porta sem pedir licença.</p>' +
         '<p class="long">Escreve em todas as línguas, as das pessoas e as das máquinas, porque tudo pode ser uma mensagem.</p>' +
         '<p class="long">Nada aqui é só o que parece. Todos os elementos podem ser inspecionados a fundo, e é lá dentro que a resposta espera.</p>' +
-        '<p class="hermes" hidden>os ratos que incitaram, serão os mesmos que finalizarão</p>',
+        '<p class="hermes" aria-hidden="true">os ratos que incitaram, serão os mesmos que finalizarão</p>',
       attrs: { 'data-mensagem': 'os ratos que incitaram, serão os mesmos que finalizarão' }, // vai no <main>: aparece direto no inspetor
-      answers: ['os ratos que incitaram, serão os mesmos que finalizarão']
+      answers: ['os ratos que incitaram, serão os mesmos que finalizarão'],
+      hint: 'o mensageiro leva uma etiqueta presa ao corpo.',
+      rx: [
+        { k: ['hermes', 'mensageiro', 'hermes trismegisto'], t: 'o nome de quem carrega nunca foi a mensagem.' },
+        { k: ['mercúrio'], t: 'guarde esse nome para depois.' },
+        { k: ['f12', 'console', 'inspecionar', 'inspecionar elemento'], t: 'a ferramenta não é a resposta.' }
+      ]
     },
     {
       num: '3',
       cls: 'lv-offset',
       clean: true,
       html: '<p class="ghost" aria-hidden="true">' + b64(ENIGMA3) + '</p>',
-      answers: [ENIGMA3]
+      answers: [ENIGMA3],
+      hint: 'o que está calado ainda ocupa lugar. e o que aparece vestido de outro alfabeto precisa ser despido.',
+      rx: [
+        { k: [b64(ENIGMA3)], t: 'ainda está vestida.' },   // o texto em base64 colado como está
+        { k: ['invisível', 'oculto', 'escondido'], t: 'esconder é só o começo.' }
+      ]
     },
     {
       num: '4',
       html:
         '<p class="long">o incompreensível se faz claro como um relógio adiantado 8 segundos à frente.</p>' +
         '<p class="cipher">YCMU YCQAMZ AIJMZ W YCM PIDMZI LM IKWVBMKMZ LMDM KWVAQLMZIZ W YCM RI IKWVBMKMC, XWZYCM BWLIA IA KWQAIA LW UCVLW, MU BWLWA WA BMUXWA, MVKWVBZIU KWZZMAXWVLMVKQI VWA BMUXWA IVBQOWA. QAAW IKWVBMKM XWZYCM, AMVLW MTIA NMQBIA XWZ [1], YCM BMU M [2] [3] [4] [5] [6], BIQA KWQAIA AW XWLMU, VMKMAAIZQIUMVBM, BMZ W UMAUW MNMQBW.</p>',
-      answers: FASE4
+      answers: FASE4,
+      hint: 'depois de lida, a frase deixa de ser enigma e vira citação. quem a escreveu sabe o que falta.',
+      rx: [
+        { k: ['césar', 'cifra', 'cifra de césar', 'rot8', 'oito'], t: 'o método não é a resposta.' },
+        { k: ['maquiavel', 'o príncipe'], t: 'o autor não preenche o que falta.' },
+        // uma palavra solta da frase (ou de uma variação dela)
+        { k: ['homens', 'homem', 'paixões', 'paixão', 'mesmas', 'sempre', 'tiveram', 'desejos', 'ambições', 'pessoas', 'humanos'],
+          t: 'uma palavra sozinha não sustenta a frase.' }
+      ]
     },
     {
       num: '5',
       kind: 'audio',
       data: { src: AUDIO, name: AUDIO_NOME },
       html: '<div class="player"></div>',
-      answers: ['o fim é o começo visto de trás']
+      answers: ['o fim é o começo visto de trás'],
+      hint: 'o ouvido recusa o que os olhos aceitam. e os olhos, às vezes, leem do outro lado.',
+      rx: [
+        { k: ['espectrograma', 'audacity', 'áudio', 'som'], t: 'o nome da ferramenta não é o que ela mostra.' },
+        { k: ['morse', 'dtmf', 'bip'], t: 'nem todo ruído é código.' }
+      ]
     },
     {
       num: '6',
       kind: 'tab',
       data: { p: rev64(FRASE6) },
       html: '<p>Se uma árvore cai no meio de uma floresta sem ninguém por perto pra ouvir, ela fez som?</p>',
-      answers: ['as coisas só aparecem quando ninguém está olhando']
+      answers: ['as coisas só aparecem quando ninguém está olhando'],
+      hint: 'ele fala quando você vai embora, num lugar que você nunca lê.',
+      rx: [
+        { k: ['sim', 'não', 'fez som', 'berkeley'], t: 'a pergunta é só a porta.' },
+        { k: ['ondas', 'vibração', 'ar'], t: 'o ar responde outra pergunta.' }
+      ]
     },
     {
       num: '7',
       clean: true,
       html: '<p>mercúrio trará a resposta</p>',
-      answers: ['arche']
+      answers: ['arche'],
+      hint: 'mercúrio não mora aqui. aparece onde o mestre se apresenta, e o que importa nele brilha mais do que devia.',
+      rx: [
+        { k: ['mercúrio', 'hermes', 'mensageiro'], t: 'quem anuncia não é dono do que carrega.' },   // repete a frase da fase 2
+        { k: ['planeta', 'metal', 'hg', 'quarta'], t: 'a matéria dele não é o que ele traz.' }
+      ]
     },
     {
       num: '',            // fase 8: só o poema e o campo
@@ -112,6 +149,10 @@ module.exports = {
       answers: [
         'o rato roeu a roupa do rei de roma',
         'o rato roeu a roupa do rei de roma e a rainha raivosa roeu o resto'
+      ],
+      hint: 'reticências são um começo que alguém cortou.',
+      rx: [
+        { k: ['o fim é igual o começo', 'começo', 'princípio'], t: 'o poema diz o que a resposta é, não qual é.' }
       ]
     }
   ]

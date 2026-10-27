@@ -44,6 +44,14 @@ input.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad);animation:sh .
 /* fase 6: texto que só existe na página enquanto o jogador está fora da aba (aparece ~0,2s ao voltar) */
 .eco{min-height:1.75em;color:var(--hi);text-align:center;overflow-wrap:anywhere;visibility:hidden;user-select:none;-webkit-user-select:none}
 .eco.on{visibility:visible}
+/* fase 2: texto fora da tela (existe na página, não aparece nem é selecionável; sem o atributo hidden, que some em cópias do HTML sem CSS) */
+.hermes{position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;user-select:none;-webkit-user-select:none}
+/* reação a resposta errada (linha discreta abaixo do campo) e caixa de dica */
+.rx{min-height:1.7em;margin-top:9px;font-size:13px;line-height:1.5;color:var(--dim);text-align:center;opacity:0;transition:opacity .45s;overflow-wrap:anywhere}
+.rx.on{opacity:1}
+.hint{margin:22px 0 0;border:1px dashed #555;padding:13px 18px 14px;text-align:center;font-size:14px;line-height:1.75;color:var(--fg);animation:hin .9s both}
+.hint small{display:block;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;font-size:12px;margin-bottom:5px}
+@keyframes hin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 /* fase 8: poema */
 .poem .body p{margin:0 0 1.7em;line-height:1.95}
 .poem .body p:first-child br:first-child{display:none}
@@ -56,7 +64,7 @@ input.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad);animation:sh .
 #log span{color:var(--dim);margin-right:8px}
 .sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 @media (max-width:520px){body{padding:12px}#app{border-color:#222}}
-@media (prefers-reduced-motion:reduce){#app{transition:none}input.bad{animation:none}}
+@media (prefers-reduced-motion:reduce){#app{transition:none}input.bad{animation:none}.hint{animation:none}.rx{transition:none}}
 </style>
 </head>
 <body>
@@ -86,16 +94,20 @@ function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.c
 // ---------- estado (guarda só o que o jogador já desbloqueou) ----------
 // Guarda só as respostas (já normalizadas). O conteúdo das fases é refeito a cada carregamento,
 // então qualquer ajuste de texto no site aparece para quem já tem progresso salvo.
+// w = respostas erradas por fase; tm = tempo (ms) que a página ficou aberta em cada fase (base da caixa de dica).
 let S = { a: [], ack: 0 };
 try { const r = JSON.parse(localStorage.getItem(ST)); if (r && Array.isArray(r.a)) S = r; } catch (e) {}
+if (!S.w || typeof S.w !== 'object') S.w = {};
+if (!S.tm || typeof S.tm !== 'object') S.tm = {};
 const P = []; // conteúdo desbloqueado: { c: coordenada, n: próxima fase }
 const save = () => { try { localStorage.setItem(ST, JSON.stringify(S)); } catch (e) {} };
 const levelOf = v => v === 1 ? D.l1 : (P[v - 2] && P[v - 2].n);
 
 // ---------- verificação: a resposta certa é a chave que abre a próxima fase ----------
+const tagOf = async (v, n) => hex(await sub.digest('SHA-256', enc.encode(D.salt + '|tag|' + v + '|' + n))).slice(0, 8);
 async function tryAnswer(v, raw) {
   const n = norm(raw); if (!n) return null;
-  const t = hex(await sub.digest('SHA-256', enc.encode(D.salt + '|tag|' + v + '|' + n))).slice(0, 8);
+  const t = await tagOf(v, n);
   const hit = D.b[v - 1].filter(e => e.t === t);
   if (!hit.length) return null;
   const base = await sub.importKey('raw', enc.encode(n), 'PBKDF2', false, ['deriveKey']);
@@ -105,6 +117,41 @@ async function tryAnswer(v, raw) {
     try { return { p: JSON.parse(dec.decode(await sub.decrypt({ name: 'AES-GCM', iv: u8(e.i) }, key, u8(e.c)))), n }; } catch (_) {}
   }
   return null;
+}
+
+// ---------- reação a resposta errada (n = resposta já normalizada) ----------
+async function reactTo(v, n, L) {
+  for (let k = 1; k < v; k++) { // qualquer resposta aceita de uma fase anterior
+    const t = await tagOf(k, n);
+    if (D.b[k - 1].some(e => e.t === t)) return L.back || null;
+  }
+  for (const r of (L.rx || [])) if (r.k.indexOf(n) >= 0) return r.t;
+  return null;
+}
+
+// ---------- caixa de dica: 5 min na fase + 3 respostas erradas (tempo e erros ficam salvos) ----------
+function clock(v, L, act) {
+  const NEED_MS = 5 * 60 * 1000, NEED_WRONG = 3;
+  let last = Date.now(), ticks = 0, stop = null, box = null;
+  const flush = () => { const now = Date.now(); S.tm[v] = (S.tm[v] || 0) + Math.min(Math.max(0, now - last), 5000); last = now; };
+  const check = () => {
+    if (box || (S.tm[v] || 0) < NEED_MS || (S.w[v] || 0) < NEED_WRONG) return;
+    box = el('aside', 'hint'); box.setAttribute('role', 'note');
+    box.append(el('small', '', 'dica'), el('span', '', L.hint));
+    act.append(box);
+    live.textContent = ''; setTimeout(() => live.textContent = 'dica: ' + L.hint, 600);
+    if (stop) { stop(); stop = null; }
+    save();
+  };
+  const leave = () => { flush(); save(); };
+  const vis = () => { if (document.hidden) leave(); };
+  addEventListener('pagehide', leave); document.addEventListener('visibilitychange', vis);
+  check();
+  if (!box) stop = ticker(() => { flush(); if (++ticks % 5 === 0) save(); check(); }, 1000); // worker: segue contando com a aba em segundo plano
+  return {
+    wrong() { flush(); save(); check(); },
+    end() { leave(); removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', vis); if (stop) stop(); }
+  };
 }
 
 // ---------- favicon / título ----------
@@ -231,7 +278,7 @@ function show(v) {
   app.innerHTML = (L.num ? '<div class="num">' + L.num + '</div>' : '') + '<div class="body">' + L.html + '</div><div class="act"></div>';
   document.title = String(v); setIcon(String(v));
   const act = app.querySelector('.act');
-  let focusEl = null;
+  let focusEl = null, ck = null;
   if (solved) {
     const box = el('div', 'coord'); box.setAttribute('role', 'status');
     box.append(el('small', '', 'coordenada ' + v + '/8'), el('b', '', P[v - 1].c));
@@ -246,23 +293,32 @@ function show(v) {
     const inp = el('input'); inp.type = 'text'; inp.name = 'r'; inp.spellcheck = false;
     inp.setAttribute('autocomplete', 'off'); inp.setAttribute('autocapitalize', 'none'); inp.setAttribute('autocorrect', 'off');
     inp.setAttribute('enterkeyhint', 'go'); inp.setAttribute('aria-label', 'resposta');
-    f.append(inp); act.append(f); focusEl = inp;
+    const rx = el('div', 'rx'); rx.setAttribute('aria-hidden', 'true');
+    f.append(inp, rx); act.append(f); focusEl = inp;
+    const say = txt => { rx.classList.remove('on'); if (txt) { rx.textContent = txt; void rx.offsetWidth; rx.classList.add('on'); } };
+    inp.addEventListener('input', () => rx.classList.remove('on'));
     let busy = false;
     f.onsubmit = async e => {
       e.preventDefault();
       if (busy || !norm(inp.value)) return;
       busy = true; inp.readOnly = true;
+      const n = norm(inp.value);
       let r = null; try { r = await tryAnswer(v, inp.value); } catch (_) {}
+      let msg = null; if (!r) { try { msg = await reactTo(v, n, L); } catch (_) {} }
       busy = false; inp.readOnly = false;
       if (r) { P.push(r.p); S.a.push(r.n); save(); fade(() => show(v)); }
       else {
         inp.classList.remove('bad'); void inp.offsetWidth; inp.classList.add('bad');
-        live.textContent = ''; setTimeout(() => live.textContent = 'resposta incorreta', 50);
+        live.textContent = ''; setTimeout(() => live.textContent = 'resposta incorreta' + (msg ? '. ' + msg : ''), 50);
+        say(msg);
         inp.select();
+        S.w[v] = (S.w[v] || 0) + 1;
+        if (ck) ck.wrong(); else save();
       }
     };
   }
   const cu = [];
+  if (!solved && L.hint) { ck = clock(v, L, act); cu.push(ck.end); }
   if (L.kind === 'audio' && kinds.audio) { const c = kinds.audio(app, L.data); if (c) cu.push(c); }
   if (L.kind === 'tab' && !solved) { const c = kinds.tab(app, L.data, v); if (c) cu.push(c); }
   cleanup = () => cu.forEach(f => f());
