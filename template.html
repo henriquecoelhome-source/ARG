@@ -154,6 +154,23 @@ function clock(v, L, act) {
   };
 }
 
+// ---------- fase 3 no celular: toque duplo no espaço vazio seleciona o texto invisível ----------
+function dblTapGhost(root) {
+  const g = root.querySelector('.ghost'); if (!g) return null;
+  let lt = 0, lx = 0, ly = 0;
+  const pick = () => { const r = document.createRange(); r.selectNodeContents(g); const s = getSelection(); s.removeAllRanges(); s.addRange(r); };
+  const up = e => {
+    if (e.pointerType === 'mouse') return; // no computador continua sendo Ctrl+A
+    if (e.target && e.target.closest && e.target.closest('input,button,a,form,#log')) { lt = 0; return; }
+    const t = Date.now();
+    if (t - lt < 380 && Math.abs(e.clientX - lx) < 40 && Math.abs(e.clientY - ly) < 40) { lt = 0; pick(); }
+    else { lt = t; lx = e.clientX; ly = e.clientY; }
+  };
+  document.addEventListener('pointerup', up);
+  document.documentElement.style.touchAction = 'manipulation'; // sem zoom por toque duplo nesta fase
+  return () => { document.removeEventListener('pointerup', up); document.documentElement.style.touchAction = ''; };
+}
+
 // ---------- favicon / título ----------
 function setIcon(txt) {
   try {
@@ -209,8 +226,9 @@ const kinds = {
   },
   tab(root, d, v) {
     const phrase = rev(d.p), len = phrase.length, words = phrase.split(' ');
-    const LET = 1300, WORD = 2200;  // título da aba: ms por letra revelada / por palavra (depois de completa)
-    const ECO = 2000, FLASH = 200;  // texto na página: ms por letra revelada fora da aba / tempo visível ao voltar
+    const TOUCH = mq('(pointer: coarse)'); // celular: revela mais rápido e deixa o texto mais tempo na tela ao voltar
+    const LET = TOUCH ? 600 : 1300, WORD = TOUCH ? 1400 : 2200;  // título da aba: ms por letra revelada / por palavra (depois de completa)
+    const ECO = TOUCH ? 900 : 2000, FLASH = TOUCH ? 1000 : 200;  // texto na página: ms por letra revelada fora da aba / tempo visível ao voltar
     const CAP = Math.ceil(len * ECO / LET); // o progresso guardado precisa chegar até a frase inteira na página
     const eco = el('p', 'eco'); eco.setAttribute('aria-hidden', 'true');
     const body = root.querySelector('.body'); if (body) body.append(eco);
@@ -321,6 +339,7 @@ function show(v) {
   if (!solved && L.hint) { ck = clock(v, L, act); cu.push(ck.end); }
   if (L.kind === 'audio' && kinds.audio) { const c = kinds.audio(app, L.data); if (c) cu.push(c); }
   if (L.kind === 'tab' && !solved) { const c = kinds.tab(app, L.data, v); if (c) cu.push(c); }
+  if (!solved) { const c = dblTapGhost(app); if (c) cu.push(c); }
   cleanup = () => cu.forEach(f => f());
   renderLog(L);
   if (focusEl && !mq('(pointer: coarse)')) focusEl.focus({ preventScroll: true });
