@@ -41,6 +41,9 @@ input.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad);animation:sh .
 .player .bar{flex:1 1 160px;min-width:130px;height:16px;border:1px solid var(--line);cursor:pointer;position:relative}
 .player .bar i{display:block;height:100%;width:0;background:var(--fg)}
 .player .tm{font-size:13px;color:var(--dim);min-width:12ch;text-align:center}
+/* fase 6: texto que só existe na página enquanto o jogador está fora da aba (aparece ~0,2s ao voltar) */
+.eco{min-height:1.75em;color:var(--hi);text-align:center;overflow-wrap:anywhere;visibility:hidden;user-select:none;-webkit-user-select:none}
+.eco.on{visibility:visible}
 /* fase 8: poema */
 .poem .body p{margin:0 0 1.7em;line-height:1.95}
 .poem .body p:first-child br:first-child{display:none}
@@ -159,9 +162,14 @@ const kinds = {
   },
   tab(root, d, v) {
     const phrase = rev(d.p), len = phrase.length, words = phrase.split(' ');
-    const LET = 1300, WORD = 2200; // ms por letra revelada / por palavra (depois de completa)
-    let R = 0; try { R = Math.min(len, +localStorage.getItem(KR) || 0); } catch (e) {}
-    let t0 = 0, stop = null;
+    const LET = 1300, WORD = 2200;  // título da aba: ms por letra revelada / por palavra (depois de completa)
+    const ECO = 2000, FLASH = 200;  // texto na página: ms por letra revelada fora da aba / tempo visível ao voltar
+    const CAP = Math.ceil(len * ECO / LET); // o progresso guardado precisa chegar até a frase inteira na página
+    const eco = el('p', 'eco'); eco.setAttribute('aria-hidden', 'true');
+    const body = root.querySelector('.body'); if (body) body.append(eco);
+    const pageLen = u => Math.min(len, Math.max(1, Math.floor(u * LET / ECO)));
+    let R = 0; try { R = Math.min(CAP, +localStorage.getItem(KR) || 0); } catch (e) {}
+    let t0 = 0, stop = null, flashT = 0;
     const paint = () => {
       const units = R + 1 + (Date.now() - t0) / LET;
       let ttl, ico;
@@ -172,19 +180,26 @@ const kinds = {
         const w = words[Math.floor(((units - len) * LET) / WORD) % words.length]; ttl = w; ico = w[0];
       }
       document.title = ttl; setIcon(ico);
+      eco.textContent = phrase.slice(0, pageLen(units)); // fica invisível (visibility:hidden) até o jogador voltar
     };
     const onVis = () => {
-      if (document.hidden) { if (stop) return; t0 = Date.now(); paint(); stop = ticker(paint, 400); }
-      else if (t0) {
+      if (document.hidden) {
+        clearTimeout(flashT); eco.classList.remove('on');
+        if (stop) return; t0 = Date.now(); paint(); stop = ticker(paint, 400);
+      } else if (t0) {
         if (stop) stop(); stop = null;
-        R = Math.min(len, Math.floor(R + 1 + (Date.now() - t0) / LET)); t0 = 0;
+        const units = R + 1 + (Date.now() - t0) / LET;
+        eco.textContent = phrase.slice(0, pageLen(units));
+        R = Math.min(CAP, Math.floor(units)); t0 = 0;
         try { localStorage.setItem(KR, String(R)); } catch (e) {}
         document.title = String(v); setIcon(String(v));
+        eco.classList.add('on'); clearTimeout(flashT);
+        flashT = setTimeout(() => { eco.classList.remove('on'); eco.textContent = ''; }, FLASH);
       }
     };
     document.addEventListener('visibilitychange', onVis);
     if (document.hidden) onVis();
-    return () => { document.removeEventListener('visibilitychange', onVis); if (stop) stop(); };
+    return () => { document.removeEventListener('visibilitychange', onVis); clearTimeout(flashT); if (stop) stop(); };
   }
 };
 

@@ -11,6 +11,20 @@ const AUDIO_NOME = 'mensagem.wav';     // nome do arquivo quando o jogador baixa
 const ENIGMA3 = 'mas não devemos focar no final agora';
 const FRASE6 = 'As coisas só aparecem quando ninguém está olhando.';
 
+// Fase 4: gera variações logicamente equivalentes de "homens sempre tiveram as mesmas paixões".
+// A comparação já ignora acentos, maiúsculas, pontuação e espaços; aqui entram as trocas de palavra e de ordem.
+// (cada variação vira uma entrada criptografada: ler o código-fonte continua não entregando a resposta)
+const FASE4 = (() => {
+  const cross = (...ls) => ls.reduce((acc, l) => acc.flatMap(a => l.map(b => (a + ' ' + b).trim())), ['']);
+  const OBJ = ['as mesmas paixões', 'os mesmos desejos', 'as mesmas ambições'];
+  const PL = cross(['', 'homens', 'os homens', 'pessoas', 'as pessoas', 'seres humanos'], ['', 'que têm e'],
+    ['sempre tiveram', 'tiveram sempre', 'sempre têm', 'têm sempre', 'sempre tinham', 'tinham sempre'], OBJ);
+  const SG = cross(['o homem', 'homem'], ['', 'que tem e'],
+    ['sempre teve', 'teve sempre', 'sempre tem', 'tem sempre', 'sempre tinha', 'tinha sempre'], OBJ);
+  // a resposta original vem primeiro; o build ignora repetidas (após normalizar)
+  return ['homens sempre tiveram as mesmas paixões', ...PL, ...SG];
+})();
+
 module.exports = {
   salt: 'cv::7d2f91ab',
   iterations: 120000,
@@ -61,7 +75,7 @@ module.exports = {
       html:
         '<p class="long">o incompreensível se faz claro como um relógio adiantado 8 segundos à frente.</p>' +
         '<p class="cipher">YCMU YCQAMZ AIJMZ W YCM PIDMZI LM IKWVBMKMZ LMDM KWVAQLMZIZ W YCM RI IKWVBMKMC, XWZYCM BWLIA IA KWQAIA LW UCVLW, MU BWLWA WA BMUXWA, MVKWVBZIU KWZZMAXWVLMVKQI VWA BMUXWA IVBQOWA. QAAW IKWVBMKM XWZYCM, AMVLW MTIA NMQBIA XWZ [1], YCM BMU M [2] [3] [4] [5] [6], BIQA KWQAIA AW XWLMU, VMKMAAIZQIUMVBM, BMZ W UMAUW MNMQBW.</p>',
-      answers: ['homens sempre tiveram as mesmas paixões']
+      answers: FASE4
     },
     {
       num: '5',
