@@ -50,6 +50,9 @@ input.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad);animation:sh .
 .rx{min-height:1.7em;margin-top:9px;font-size:13px;line-height:1.5;color:var(--dim);text-align:center;opacity:0;transition:opacity .45s;overflow-wrap:anywhere}
 .rx.on{opacity:1}
 .hint{margin:22px 0 0;border:1px dashed #555;padding:13px 18px 14px;text-align:center;font-size:14px;line-height:1.75;color:var(--fg);animation:hin .9s both}
+.hintbtn{display:block;margin:22px auto 0;background:none;border:1px dashed #555;color:var(--dim);padding:9px 24px;font:inherit;font-size:13px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;border-radius:0;animation:hin .9s both}
+.hintbtn:hover,.hintbtn:focus-visible{border-color:#fff;color:#fff;outline:none}
+.hint:focus{outline:none}
 .hint small{display:block;color:var(--dim);letter-spacing:.14em;text-transform:uppercase;font-size:12px;margin-bottom:5px}
 @keyframes hin{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 /* fase 8: poema */
@@ -64,7 +67,7 @@ input.bad{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad);animation:sh .
 #log span{color:var(--dim);margin-right:8px}
 .sr{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 @media (max-width:520px){body{padding:12px}#app{border-color:#222}}
-@media (prefers-reduced-motion:reduce){#app{transition:none}input.bad{animation:none}.hint{animation:none}.rx{transition:none}}
+@media (prefers-reduced-motion:reduce){#app{transition:none}input.bad{animation:none}.hint,.hintbtn{animation:none}.rx{transition:none}}
 </style>
 </head>
 <body>
@@ -94,11 +97,12 @@ function el(tag, cls, txt) { const e = document.createElement(tag); if (cls) e.c
 // ---------- estado (guarda só o que o jogador já desbloqueou) ----------
 // Guarda só as respostas (já normalizadas). O conteúdo das fases é refeito a cada carregamento,
 // então qualquer ajuste de texto no site aparece para quem já tem progresso salvo.
-// w = respostas erradas por fase; tm = tempo (ms) que a página ficou aberta em cada fase (base da caixa de dica).
+// w = respostas erradas por fase; tm = tempo (ms) que a página ficou aberta em cada fase; h = dica já aberta (base do botão de dica).
 let S = { a: [], ack: 0 };
 try { const r = JSON.parse(localStorage.getItem(ST)); if (r && Array.isArray(r.a)) S = r; } catch (e) {}
 if (!S.w || typeof S.w !== 'object') S.w = {};
 if (!S.tm || typeof S.tm !== 'object') S.tm = {};
+if (!S.h || typeof S.h !== 'object') S.h = {};
 const P = []; // conteúdo desbloqueado: { c: coordenada, n: próxima fase }
 const save = () => { try { localStorage.setItem(ST, JSON.stringify(S)); } catch (e) {} };
 const levelOf = v => v === 1 ? D.l1 : (P[v - 2] && P[v - 2].n);
@@ -129,25 +133,35 @@ async function reactTo(v, n, L) {
   return null;
 }
 
-// ---------- caixa de dica: 5 min na fase + 3 respostas erradas (tempo e erros ficam salvos) ----------
+// ---------- dica: 5 min na fase + 3 respostas erradas liberam um botão; a dica só abre ao tocar nele (tudo fica salvo) ----------
 function clock(v, L, act) {
   const NEED_MS = 5 * 60 * 1000, NEED_WRONG = 3;
-  let last = Date.now(), ticks = 0, stop = null, box = null;
+  let last = Date.now(), ticks = 0, stop = null, node = null;
   const flush = () => { const now = Date.now(); S.tm[v] = (S.tm[v] || 0) + Math.min(Math.max(0, now - last), 5000); last = now; };
-  const check = () => {
-    if (box || (S.tm[v] || 0) < NEED_MS || (S.w[v] || 0) < NEED_WRONG) return;
-    box = el('aside', 'hint'); box.setAttribute('role', 'note');
+  const reveal = quiet => {
+    const box = el('aside', 'hint'); box.setAttribute('role', 'note'); box.tabIndex = -1;
     box.append(el('small', '', 'dica'), el('span', '', L.hint));
-    act.append(box);
-    live.textContent = ''; setTimeout(() => live.textContent = 'dica: ' + L.hint, 600);
+    const hadFocus = node && document.activeElement === node;
+    if (node) node.replaceWith(box); else act.append(box);
+    node = box; S.h[v] = 1; save();
+    if (hadFocus) box.focus({ preventScroll: true });
+    if (!quiet) { live.textContent = ''; setTimeout(() => live.textContent = 'dica: ' + L.hint, 100); }
+  };
+  const check = () => {
+    if (node || (S.tm[v] || 0) < NEED_MS || (S.w[v] || 0) < NEED_WRONG) return;
     if (stop) { stop(); stop = null; }
+    if (S.h[v]) { reveal(true); return; } // já aberta antes: volta aberta ao recarregar
+    node = el('button', 'hintbtn', 'dica'); node.type = 'button'; node.setAttribute('aria-label', 'abrir dica');
+    node.onclick = () => reveal(false);
+    act.append(node);
+    live.textContent = ''; setTimeout(() => live.textContent = 'uma dica está disponível', 600);
     save();
   };
   const leave = () => { flush(); save(); };
   const vis = () => { if (document.hidden) leave(); };
   addEventListener('pagehide', leave); document.addEventListener('visibilitychange', vis);
   check();
-  if (!box) stop = ticker(() => { flush(); if (++ticks % 5 === 0) save(); check(); }, 1000); // worker: segue contando com a aba em segundo plano
+  if (!node) stop = ticker(() => { flush(); if (++ticks % 5 === 0) save(); check(); }, 1000); // worker: segue contando com a aba em segundo plano
   return {
     wrong() { flush(); save(); check(); },
     end() { leave(); removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', vis); if (stop) stop(); }
